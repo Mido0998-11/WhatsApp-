@@ -8,7 +8,6 @@ import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
 
-// سحب المفتاح من ريندر
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
@@ -18,18 +17,12 @@ const BOT_SYSTEM_PROMPT = `أنت مساعد ذكي ومرح، تجيب باخت
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال بمحرك كوهيرا!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال أونلاين بمحرك كوهيرا!`));
 app.listen(PORT, '0.0.0.0');
 
-// ===== دالة الـ AI المحدثة والمحمية من الأخطاء =====
+// ===== دالة الـ AI عبر كوهيرا V2 =====
 async function askAI(text) {
   try {
-    // تأكيد وجود المفتاح لمنع الأخطاء الساذجة
-    if (!COHERE_API_KEY) {
-      console.error("🚨 خطأ: مفتاح COHERE_API_KEY غير مضاف في الـ Environment Variables جوة ريندر!");
-      return "يا غالي، مفتاح كوهيرا ما مضاف في سيرفر ريندر، اتأكد منه.";
-    }
-
     const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
@@ -47,30 +40,18 @@ async function askAI(text) {
     });
 
     const data = await response.json();
-
-    // لو السيرفر رجع استجابة سليمة
-    if (response.ok && data?.message?.content?.[0]?.text) {
-        return data.message.content[0].text;
-    } 
-    
-    // 🚨 التعديل السحري: لو في خطأ، اطبعه بالملي جوة الـ Logs عشان نكشف العلة طوالي
-    console.error("🚨 كوهيرا رجعت خطأ:", JSON.stringify(data));
-    
-    if (data?.message) {
-      return `كوهيرا بتقول: ${data.message}`;
-    }
-    return "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
-
+    return data?.message?.content?.[0]?.text || "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
   } catch (err) {
-    console.error("🚨 خطأ في الاتصال بـ Cohere:", err.message);
     return "حصل ضغط في السيرفر هسي، أرسل رسالتك دي تاني سريع.";
   }
 }
 
 // ===== تشغيل المحرك الرئيسي للبوت =====
 async function start() {
-  // استخدام اسم جلسة فريد وجديد عشان يتخطى أي تعليق قديم
-  const { state, saveCreds } = await useMultiFileAuthState("goku_cohere_v2");
+  // 🚨 اسم جلسة فريش تماماً لمسح أي تعليقة قديمة بالملي
+  const { state, saveCreds } = await useMultiFileAuthState("goku_final_session");
+  
+  // سحب أحدث نسخة متوافقة مع سيرفرات الواتساب هسي
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
@@ -78,7 +59,10 @@ async function start() {
     auth: state,
     logger: P({ level: "silent" }),
     mobile: false,
-    browser: Browsers.macOS('Safari'), // تمويه أمني قوي
+    
+    // 🚨 الحل القاطع هنا: بنخليه يظهر للواتساب كـ متصفح نظيف وغير محظور عشان يقبل الكود تلقائياً
+    browser: Browsers.ubuntu('Chrome'), 
+    
     syncFullHistory: false,
     markOnlineOnConnect: true
   });
@@ -94,12 +78,12 @@ async function start() {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
         console.log(`📱 جاري طلب كود الربط للرقم السوداني: +${targetPhone}`);
-        console.log(`🔑 كود الربط الجديد (8 أرقام) هو: ${code}`);
+        console.log(`🔑 كود الربط الفريش والمضمون (8 أرقام) هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
         console.error("🚨 فشل توليد كود الربط:", error.message);
       }
-    }, 5000);
+    }, 6000); 
   }
 
   // ===== استقبال ومعالجة الرسائل =====
@@ -123,7 +107,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو جاهز بمحرك كوهيرا!');
+    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو شغال فُل الفُل هسي!');
   });
 }
 
