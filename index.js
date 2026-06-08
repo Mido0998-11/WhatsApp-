@@ -1,6 +1,7 @@
 import makeWASocket, {
   useMultiFileAuthState,
-  fetchLatestBaileysVersion
+  fetchLatestBaileysVersion,
+  Browsers
 } from "@whiskeysockets/baileys";
 
 import P from "pino";
@@ -12,22 +13,21 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
 
-// التوجيه الذكي لجيميناي: يثبت اسم غوكو وما يتكلم عن المطور إلا لو اتسأل عنه مباشرة
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكي ومرح، تجيب باختصار ووضوح وبلهجة سودانية ودية. اسمك هو (${BOT_NAME}). تذكر دائماً أن مطورك وصانعك الوحيد هو (${DEVELOPER})، ولكن لا تذكر اسم مطورك أبداً في إجاباتك إلا إذا سألك المستخدم صراحة عن من قام ببرمجتك أو تطويرك.`;
 
-// ===== سـيرفر Express عشان منصة Render ما تقفل المشـروع =====
+// ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
-  res.send(`🤖 البوت ${BOT_NAME} شغال أونلاين ومستقر على ريندر!`);
+  res.send(`🤖 البوت ${BOT_NAME} شغال أونلاين ومستقر!`);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Express server is running on port ${PORT}`);
 });
 
-// ===== دالة الـ AI (Gemini) =====
+// ===== دالة الـ AI =====
 async function askAI(text) {
   try {
     const res = await fetch(
@@ -40,16 +40,14 @@ async function askAI(text) {
         })
       }
     );
-
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || "ما فهمت والله، أرسل تاني.";
   } catch (err) {
-    console.error("🚨 خطأ في جيميناي:", err.message);
     return "عذراً، حصل ضغط في السيرفر هسي.";
   }
 }
 
-// ===== تشغيل الواتساب =====
+// ===== تشغيل المحرك الرئيسي =====
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
   const { version } = await fetchLatestBaileysVersion();
@@ -58,14 +56,19 @@ async function start() {
     version,
     auth: state,
     logger: P({ level: "silent" }),
-    mobile: false
+    mobile: false,
+    
+    // 🚨 التعديل السحري هنا: خليناه يظهر في الواتساب باسم جهازك الخاص Wizzy Dev
+    browser: ["Wizzy Dev", "Chrome", "1.0.0"], 
+    
+    syncFullHistory: false,
+    markOnlineOnConnect: true
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  // ===== توليد كود الربط تلقائياً للرقم المطلوب =====
+  // ===== توليد كود الربط تلقائياً =====
   if (!sock.authState.creds.registered) {
-    // الرقم المكتوب بدون فراغات أو علامة +
     const targetPhone = "584167776891"; 
     
     setTimeout(async () => {
@@ -73,38 +76,43 @@ async function start() {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
         console.log(`📱 جاري طلب كود الربط للرقم: +${targetPhone}`);
-        console.log(`🔑 كود الربط الخاص بك (8 أرقام) هو: ${code}`);
+        console.log(`🔑 كود الربط الجديد (8 أرقام) هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
-        console.error("🚨 فشل في توليد كود الربط:", error.message);
+        console.error("🚨 فشل توليد كود الربط:", error.message);
       }
-    }, 5000); // تأخير 5 ثواني عشان نضمن استقرار السيرفر والاتصال
+    }, 6000);
   }
 
-  // ===== استقبال ومعالجة الرسائل =====
+  // ===== معالجة الرسائل =====
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
 
     const from = msg.key.remoteJid;
-    const text =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text;
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
 
     if (!text) return;
-
     const cleanText = text.toLowerCase().trim();
 
-    // الرد المباشر لو زول سأل من المطور
-    if (cleanText.includes("من مطورك") || cleanText.includes("منو عملك") || cleanText.includes("منو برمجك") || cleanText.includes("من مطور البوت")) {
+    if (cleanText.includes("من مطورك") || cleanText.includes("منو عملك") || cleanText.includes("منو برمجك")) {
       return sock.sendMessage(from, {
         text: `أنا البوت ${BOT_NAME} 🤖، ومطوري وصانعي الوحيد هو المبرمج ${DEVELOPER} ✨.`
       });
     }
 
-    // بقية الرسايل تمشي لجيميناي
     const reply = await askAI(text);
     await sock.sendMessage(from, { text: reply });
+  });
+
+  sock.ev.on('connection.update', (update) => {
+    const { connection } = update;
+    if (connection === 'close') {
+      console.log('🔄 جاري إعادة الاتصال تلقائياً...');
+      start();
+    } else if (connection === 'open') {
+      console.log('🟢 تم الربط بنجاح والبوت جاهز لاستقبل الرسائل هسي باسم Wizzy Dev!');
+    }
   });
 }
 
