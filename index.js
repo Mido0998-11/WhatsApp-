@@ -7,8 +7,8 @@ import makeWASocket, {
 import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
-import crypto from "crypto";
 
+// سحب المفتاح من ريندر
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
@@ -18,12 +18,18 @@ const BOT_SYSTEM_PROMPT = `أنت مساعد ذكي ومرح، تجيب باخت
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف ومقفل صم!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال بمحرك كوهيرا!`));
 app.listen(PORT, '0.0.0.0');
 
-// ===== دالة الـ AI عبر كوهيرا V2 =====
+// ===== دالة الـ AI المحدثة والمحمية من الأخطاء =====
 async function askAI(text) {
   try {
+    // تأكيد وجود المفتاح لمنع الأخطاء الساذجة
+    if (!COHERE_API_KEY) {
+      console.error("🚨 خطأ: مفتاح COHERE_API_KEY غير مضاف في الـ Environment Variables جوة ريندر!");
+      return "يا غالي، مفتاح كوهيرا ما مضاف في سيرفر ريندر، اتأكد منه.";
+    }
+
     const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
@@ -41,35 +47,40 @@ async function askAI(text) {
     });
 
     const data = await response.json();
-    return data?.message?.content?.[0]?.text || "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
+
+    // لو السيرفر رجع استجابة سليمة
+    if (response.ok && data?.message?.content?.[0]?.text) {
+        return data.message.content[0].text;
+    } 
+    
+    // 🚨 التعديل السحري: لو في خطأ، اطبعه بالملي جوة الـ Logs عشان نكشف العلة طوالي
+    console.error("🚨 كوهيرا رجعت خطأ:", JSON.stringify(data));
+    
+    if (data?.message) {
+      return `كوهيرا بتقول: ${data.message}`;
+    }
+    return "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
+
   } catch (err) {
+    console.error("🚨 خطأ في الاتصال بـ Cohere:", err.message);
     return "حصل ضغط في السيرفر هسي، أرسل رسالتك دي تاني سريع.";
   }
 }
 
 // ===== تشغيل المحرك الرئيسي للبوت =====
 async function start() {
-  // 🚨 غيرنا اسم المجلد هنا لـ goku_session عشان نجبر ريندر يفتح صفحة جديدة تماماً وينظف القديم
-  const { state, saveCreds } = await useMultiFileAuthState("goku_session");
+  // استخدام اسم جلسة فريد وجديد عشان يتخطى أي تعليق قديم
+  const { state, saveCreds } = await useMultiFileAuthState("goku_cohere_v2");
   const { version } = await fetchLatestBaileysVersion();
-
-  // توليد معرف جهاز عشوائي ومميز لمنع الحظر والتعليق
-  const randomDeviceId = crypto.randomBytes(4).toString('hex').toUpperCase();
 
   const sock = makeWASocket({
     version,
     auth: state,
     logger: P({ level: "silent" }),
     mobile: false,
-    
-    // 🚨 التعديل الأمني الحاسم: التمويه كـ Safari على نظام ماك للحماية القصوى
-    browser: Browsers.macOS('Safari'), 
-    
-    // إعدادات تسريع الجلسة والربط الفوري
+    browser: Browsers.macOS('Safari'), // تمويه أمني قوي
     syncFullHistory: false,
-    markOnlineOnConnect: true,
-    connectTimeoutMs: 60000,
-    defaultQueryTimeoutMs: 0
+    markOnlineOnConnect: true
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -83,12 +94,12 @@ async function start() {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
         console.log(`📱 جاري طلب كود الربط للرقم السوداني: +${targetPhone}`);
-        console.log(`🔑 كود الربط الفريش والنظيف (8 أرقام) هو: ${code}`);
+        console.log(`🔑 كود الربط الجديد (8 أرقام) هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
         console.error("🚨 فشل توليد كود الربط:", error.message);
       }
-    }, 7000); // مهلة 7 ثواني كاملة لضمان استقرار السيرفر الجديد
+    }, 5000);
   }
 
   // ===== استقبال ومعالجة الرسائل =====
@@ -112,7 +123,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو شغال فُل الفُل هسي!');
+    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو جاهز بمحرك كوهيرا!');
   });
 }
 
