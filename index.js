@@ -7,60 +7,46 @@ import makeWASocket, {
 import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
-import fs from "fs";
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+// 🚨 صبينا مفتاح OpenRouter بتاعك هنا مباشرة عشان يشتغل طيران وبدون حظر الشبكة
+const OPENROUTER_KEY = "Sk-or-v1-f128323d6e1dfc75de1bbc94abae2b3a2e06221981571e4a1d47f431cbcc27a0";
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
 
-// توجيهات الذكاء الاصطناعي الصارمة والنظيفة
 const SYSTEM_INSTRUCTION = `أنت مساعد ذكي ومرح، تجيب باختصار ووضوح وبلهجة سودانية ودية. اسمك هو (${BOT_NAME}). تذكر دائماً أن مطورك وصانعك الوحيد هو (${DEVELOPER})، ولكن لا تذكر اسم مطورك أبداً في إجاباتك إلا إذا سألك المستخدم صراحة عن من قام ببرمجتك أو تطويرك.`;
 
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف ومقفل صم!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف ومستقر!`));
 app.listen(PORT, '0.0.0.0');
 
-// ===== دالة الـ AI المعدلة والمضمونة 100% =====
+// ===== دالة الـ AI المعدلة عبر OpenRouter (مفتوحة ومضمونة في السودان) =====
 async function askAI(text) {
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // الصياغة الرسمية الصحيحة لفصل التعليمات عن رسالة المستخدم
-          systemInstruction: {
-            parts: [{ text: SYSTEM_INSTRUCTION }]
-          },
-          contents: [{ 
-            role: "user",
-            parts: [{ text: text }] 
-          }],
-          generationConfig: {
-            temperature: 0.6,
-            topK: 40,
-            topP: 0.95
-          }
-        })
-      }
-    );
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://render.com",
+        "X-Title": "Goku WA Bot"
+      },
+      body: JSON.stringify({
+        "model": "google/gemini-flash-1.5", // شغال بموديل جيميناي فلاش السريع جداً
+        "messages": [
+          { role: "system", content: SYSTEM_INSTRUCTION },
+          { role: "user", content: text }
+        ],
+        "temperature": 0.6
+      })
+    });
 
     const data = await res.json();
-    
-    // فحص دقيق للاستجابة قبل ما يضرب
-    if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        return data.candidates[0].content.parts[0].text;
-    } else if (data?.promptFeedback?.blockReason) {
-        return "الغالي، الكلام دا حساس شوية وسيرفرات جيميناي حظرته، أرسل غيره بجيك طيارة! 😉";
-    }
-    
-    return "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
+    return data?.choices?.[0]?.message?.content || "والله ما فهمتك، أرسل تاني يا غالي.";
   } catch (err) {
-    console.error("🚨 خطأ في جيميناي:", err.message);
-    return "حصل ضغط في السيرفر هسي، أرسل رسالتك دي تاني سريع.";
+    console.error("🚨 خطأ في الاتصال بـ OpenRouter:", err.message);
+    return "حصل ضغط في السيرفر هسي، أرسل رسالتك تاني سريع.";
   }
 }
 
@@ -81,7 +67,7 @@ async function start() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // ===== توليد كود الربط تلقائياً =====
+  // ===== توليد كود الربط تلقائياً لو الجلسة طارت =====
   if (!sock.authState.creds.registered) {
     const targetPhone = "249967185716"; 
     
@@ -107,12 +93,12 @@ async function start() {
     
     const cleanText = text.toLowerCase().trim();
 
-    // فحص يدوي وسريع لو سأل عن المطور قبل ما نمشي للـ AI
+    // فحص يدوي وسريع لو سأل عن المطور
     if (cleanText.includes("من مطورك") || cleanText.includes("منو عملك") || cleanText.includes("منو برمجك") || cleanText.includes("من مطور البوت")) {
       return sock.sendMessage(from, { text: `أنا البوت ${BOT_NAME} 🤖، ومطوري وصانعي الوحيد هو المبرمج الباش ${DEVELOPER} ✨.` });
     }
 
-    // بقية الونسة بتمشي للذكاء الاصطناعي النظيف هسي
+    // تمجيد الرسايل عبر السيرفر المفتوح
     const reply = await askAI(text);
     await sock.sendMessage(from, { text: reply });
   });
@@ -120,7 +106,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الربط بنجاح والبوت شغال فُل الفُل هسي!');
+    else if (connection === 'open') console.log('🟢 تم الربط بنجاح والبوت شغال أونلاين ومستقر هسي!');
   });
 }
 
