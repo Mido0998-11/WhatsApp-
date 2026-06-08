@@ -8,49 +8,52 @@ import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
 
-// 🚨 صبينا مفتاح OpenRouter بتاعك هنا مباشرة عشان يشتغل طيران وبدون حظر الشبكة
-const OPENROUTER_KEY = "Sk-or-v1-f128323d6e1dfc75de1bbc94abae2b3a2e06221981571e4a1d47f431cbcc27a0";
+// سحب مفتاح كوهيرا من البيئة جوة ريندر
+const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
 
-const SYSTEM_INSTRUCTION = `أنت مساعد ذكي ومرح، تجيب باختصار ووضوح وبلهجة سودانية ودية. اسمك هو (${BOT_NAME}). تذكر دائماً أن مطورك وصانعك الوحيد هو (${DEVELOPER})، ولكن لا تذكر اسم مطورك أبداً في إجاباتك إلا إذا سألك المستخدم صراحة عن من قام ببرمجتك أو تطويرك.`;
+// التوجيه الصارم لنموذج كوهيرا باللهجة السودانية
+const BOT_SYSTEM_PROMPT = `أنت مساعد ذكي ومرح، تجيب باختصار ووضوح وبلهجة سودانية ودية. اسمك هو (${BOT_NAME}). تذكر دائماً أن مطورك وصانعك الوحيد هو (${DEVELOPER})، ولكن لا تذكر اسم مطورك أو صانعك أبداً في إجاباتك إلا إذا سألك المستخدم صراحة عن من قام ببرمجتك أو تطويرك.`;
 
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف ومستقر!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال بمحرك Cohere واونلاين!`));
 app.listen(PORT, '0.0.0.0');
 
-// ===== دالة الـ AI المعدلة عبر OpenRouter (مفتوحة ومضمونة في السودان) =====
+// ===== دالة الـ AI عبر محرك ورابط كوهيرا الرسمي =====
 async function askAI(text) {
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://render.com",
-        "X-Title": "Goku WA Bot"
+        "Authorization": `Bearer ${COHERE_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        "model": "google/gemini-flash-1.5", // شغال بموديل جيميناي فلاش السريع جداً
-        "messages": [
-          { role: "system", content: SYSTEM_INSTRUCTION },
-          { role: "user", content: text }
-        ],
-        "temperature": 0.6
+        model: "command-a-03-2025", // الموديل الممتاز والسريع
+        temperature: 0.5,
+        messages: [
+          { role: "system", content: [{ type: "text", text: BOT_SYSTEM_PROMPT }] },
+          { role: "user", content: [{ type: "text", text: text }] }
+        ]
       })
     });
 
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content || "والله ما فهمتك، أرسل تاني يا غالي.";
+    if (!response.ok) {
+      throw new Error(`Cohere API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data?.message?.content?.[0]?.text || "عذراً يا غالي، ما قدرت أحلل الكلام ده هسي.";
   } catch (err) {
-    console.error("🚨 خطأ في الاتصال بـ OpenRouter:", err.message);
-    return "حصل ضغط في السيرفر هسي، أرسل رسالتك تاني سريع.";
+    console.error("🚨 خطأ في محرك كوهيرا:", err.message);
+    return "والله السيرفر علق ثانية، أرسل رسالتك دي تاني سريع وبجيب ليك المفيد.";
   }
 }
 
-// ===== تشغيل المحرك الرئيسي =====
+// ===== تشغيل المحرك الرئيسي للبوت =====
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
   const { version } = await fetchLatestBaileysVersion();
@@ -67,7 +70,7 @@ async function start() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // ===== توليد كود الربط تلقائياً لو الجلسة طارت =====
+  // ===== توليد كود الربط تلقائياً للرقم السوداني لو الجلسة فصلت =====
   if (!sock.authState.creds.registered) {
     const targetPhone = "249967185716"; 
     
@@ -75,7 +78,7 @@ async function start() {
       try {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
-        console.log(`🔑 كود الربط للرقم الجديد (+${targetPhone}) هو: ${code}`);
+        console.log(`🔑 كود الربط للرقم (+${targetPhone}) هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
         console.error("🚨 فشل توليد كود الربط:", error.message);
@@ -83,7 +86,7 @@ async function start() {
     }, 5000);
   }
 
-  // ===== استقبال ومعالجة الرسائل =====
+  // ===== استقبال ومعالجة الرسائل جوة الواتساب =====
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
@@ -93,12 +96,12 @@ async function start() {
     
     const cleanText = text.toLowerCase().trim();
 
-    // فحص يدوي وسريع لو سأل عن المطور
+    // الفحص اليدوي المباشر لأسئلة المطور لضمان سرعة الرد وثبات الشخصية
     if (cleanText.includes("من مطورك") || cleanText.includes("منو عملك") || cleanText.includes("منو برمجك") || cleanText.includes("من مطور البوت")) {
-      return sock.sendMessage(from, { text: `أنا البوت ${BOT_NAME} 🤖، ومطوري وصانعي الوحيد هو المبرمج الباش ${DEVELOPER} ✨.` });
+      return sock.sendMessage(from, { text: `أنا البوت ${BOT_NAME} 🤖، ومطوري وصانعي الوحيد هو الباشمهندس ${DEVELOPER} ✨.` });
     }
 
-    // تمجيد الرسايل عبر السيرفر المفتوح
+    // تمرير الونسة والأسئلة لمحرك كوهيرا
     const reply = await askAI(text);
     await sock.sendMessage(from, { text: reply });
   });
@@ -106,7 +109,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الربط بنجاح والبوت شغال أونلاين ومستقر هسي!');
+    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح! غوكو شغال بمحرك كوهيرا هسي.');
   });
 }
 
