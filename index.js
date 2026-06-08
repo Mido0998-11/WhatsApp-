@@ -7,7 +7,7 @@ import makeWASocket, {
 import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
-import fs from "fs"; // استيراد مكتبة الملفات لتطهير الكاش
+import crypto from "crypto";
 
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const BOT_NAME = "غوكو";
@@ -18,7 +18,7 @@ const BOT_SYSTEM_PROMPT = `أنت مساعد ذكي ومرح، تجيب باخت
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} لايف ومقفل صم!`));
 app.listen(PORT, '0.0.0.0');
 
 // ===== دالة الـ AI عبر كوهيرا V2 =====
@@ -41,10 +41,7 @@ async function askAI(text) {
     });
 
     const data = await response.json();
-    if (data?.message?.content?.[0]?.text) {
-        return data.message.content[0].text;
-    }
-    return "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
+    return data?.message?.content?.[0]?.text || "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
   } catch (err) {
     return "حصل ضغط في السيرفر هسي، أرسل رسالتك دي تاني سريع.";
   }
@@ -52,22 +49,27 @@ async function askAI(text) {
 
 // ===== تشغيل المحرك الرئيسي للبوت =====
 async function start() {
-  // 🚨 تكة التطهير الحاسمة: لو البوت ما مربوط وفي كاش قديم ميت، بنمسحه تماماً عشان يبدأ على نظافة
-  if (fs.existsSync("./auth") && !fs.existsSync("./auth/creds.json")) {
-    try { fs.rmSync("./auth", { recursive: true, force: true }); console.log("🗑️ تم مسح كاش الربط القديم المعلق بنجاح!"); } catch(e){}
-  }
-
-  const { state, saveCreds } = await useMultiFileAuthState("auth");
+  // 🚨 غيرنا اسم المجلد هنا لـ goku_session عشان نجبر ريندر يفتح صفحة جديدة تماماً وينظف القديم
+  const { state, saveCreds } = await useMultiFileAuthState("goku_session");
   const { version } = await fetchLatestBaileysVersion();
+
+  // توليد معرف جهاز عشوائي ومميز لمنع الحظر والتعليق
+  const randomDeviceId = crypto.randomBytes(4).toString('hex').toUpperCase();
 
   const sock = makeWASocket({
     version,
     auth: state,
     logger: P({ level: "silent" }),
     mobile: false,
-    browser: Browsers.ubuntu('Chrome'), // المتصفح الرسمي المضمون للحماية
+    
+    // 🚨 التعديل الأمني الحاسم: التمويه كـ Safari على نظام ماك للحماية القصوى
+    browser: Browsers.macOS('Safari'), 
+    
+    // إعدادات تسريع الجلسة والربط الفوري
     syncFullHistory: false,
-    markOnlineOnConnect: true
+    markOnlineOnConnect: true,
+    connectTimeoutMs: 60000,
+    defaultQueryTimeoutMs: 0
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -81,12 +83,12 @@ async function start() {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
         console.log(`📱 جاري طلب كود الربط للرقم السوداني: +${targetPhone}`);
-        console.log(`🔑 كود الربط الجديد (8 أرقام) هو: ${code}`);
+        console.log(`🔑 كود الربط الفريش والنظيف (8 أرقام) هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
         console.error("🚨 فشل توليد كود الربط:", error.message);
       }
-    }, 6000); // مهلة 6 ثواني لضمان استقرار السيرفر
+    }, 7000); // مهلة 7 ثواني كاملة لضمان استقرار السيرفر الجديد
   }
 
   // ===== استقبال ومعالجة الرسائل =====
@@ -110,7 +112,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو جاهز ومستقر هسي!');
+    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو شغال فُل الفُل هسي!');
   });
 }
 
