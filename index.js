@@ -8,48 +8,53 @@ import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
 
-// سحب مفتاح كوهيرا من البيئة جوة ريندر
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 const BOT_NAME = "غوكو";
 const DEVELOPER = "محمد عادل ويزي";
 
-// التوجيه الصارم لنموذج كوهيرا باللهجة السودانية
+// التوجيه السوداني المظبوط والنظيف لـ Cohere
 const BOT_SYSTEM_PROMPT = `أنت مساعد ذكي ومرح، تجيب باختصار ووضوح وبلهجة سودانية ودية. اسمك هو (${BOT_NAME}). تذكر دائماً أن مطورك وصانعك الوحيد هو (${DEVELOPER})، ولكن لا تذكر اسم مطورك أو صانعك أبداً في إجاباتك إلا إذا سألك المستخدم صراحة عن من قام ببرمجتك أو تطويرك.`;
 
 // ===== سيرفر Express لمنع توقف ريندر =====
 const app = express();
 const PORT = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال بمحرك Cohere واونلاين!`));
+app.get('/', (req, res) => res.send(`🤖 البوت ${BOT_NAME} شغال أونلاين بمحرك كوهيرا النظيف!`));
 app.listen(PORT, '0.0.0.0');
 
-// ===== دالة الـ AI عبر محرك ورابط كوهيرا الرسمي =====
+// ===== دالة الـ AI المعدلة والمضمونة لـ Cohere V2 =====
 async function askAI(text) {
   try {
     const response = await fetch("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${COHERE_API_KEY}`,
+        "Authorization": `Bearer ${COHERE_API_KEY.trim()}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "command-a-03-2025", // الموديل الممتاز والسريع
+        model: "command-a-03-2025",
         temperature: 0.5,
+        // 🚨 الصياغة المبسطة والمضمونة لمنع أخطاء السيرفر
         messages: [
-          { role: "system", content: [{ type: "text", text: BOT_SYSTEM_PROMPT }] },
-          { role: "user", content: [{ type: "text", text: text }] }
+          { role: "system", content: BOT_SYSTEM_PROMPT },
+          { role: "user", content: text }
         ]
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Cohere API error: ${response.statusText}`);
-    }
-
     const data = await response.json();
-    return data?.message?.content?.[0]?.text || "عذراً يا غالي، ما قدرت أحلل الكلام ده هسي.";
+
+    // فحص دقيق وشامل للرد المرتجع من كوهيرا
+    if (data?.message?.content?.[0]?.text) {
+        return data.message.content[0].text;
+    } else if (data?.message) {
+        return data.message;
+    }
+    
+    console.error("🚨 استجابة غير متوقعة من كوهيرا:", JSON.stringify(data));
+    return "والله يا غالي السيرفر علق ثانية، أرسل كلامك تاني وبجيب ليك المفيد.";
   } catch (err) {
-    console.error("🚨 خطأ في محرك كوهيرا:", err.message);
-    return "والله السيرفر علق ثانية، أرسل رسالتك دي تاني سريع وبجيب ليك المفيد.";
+    console.error("🚨 خطأ في الاتصال بـ Cohere:", err.message);
+    return "حصل ضغط في السيرفر هسي، أرسل رسالتك دي تاني سريع.";
   }
 }
 
@@ -70,7 +75,7 @@ async function start() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // ===== توليد كود الربط تلقائياً للرقم السوداني لو الجلسة فصلت =====
+  // ===== توليد كود الربط تلقائياً لو الجلسة فصلت =====
   if (!sock.authState.creds.registered) {
     const targetPhone = "249967185716"; 
     
@@ -96,12 +101,12 @@ async function start() {
     
     const cleanText = text.toLowerCase().trim();
 
-    // الفحص اليدوي المباشر لأسئلة المطور لضمان سرعة الرد وثبات الشخصية
+    // الفحص اليدوي المباشر لأسئلة المطور لضمان ثبات الشخصية وسرعة الرد
     if (cleanText.includes("من مطورك") || cleanText.includes("منو عملك") || cleanText.includes("منو برمجك") || cleanText.includes("من مطور البوت")) {
       return sock.sendMessage(from, { text: `أنا البوت ${BOT_NAME} 🤖، ومطوري وصانعي الوحيد هو الباشمهندس ${DEVELOPER} ✨.` });
     }
 
-    // تمرير الونسة والأسئلة لمحرك كوهيرا
+    // تمرير الونسة والأسئلة للمحرك الجديد
     const reply = await askAI(text);
     await sock.sendMessage(from, { text: reply });
   });
@@ -109,7 +114,7 @@ async function start() {
   sock.ev.on('connection.update', (update) => {
     const { connection } = update;
     if (connection === 'close') start();
-    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح! غوكو شغال بمحرك كوهيرا هسي.');
+    else if (connection === 'open') console.log('🟢 تم الاتصال بنجاح وغوكو جاهز بمحرك كوهيرا الجديد!');
   });
 }
 
