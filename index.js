@@ -1,12 +1,13 @@
 import makeWASocket, {
   useMultiFileAuthState,
-  fetchLatestBaileysVersion
+  fetchLatestBaileysVersion,
+  Browsers // استيراد مكتبة المتصفحات الرسمية والأمنية
 } from "@whiskeysockets/baileys";
 
 import P from "pino";
 import fetch from "node-fetch";
 import express from "express";
-import fs from "fs"; // استيراد مكتبة الملفات لمسح الكاش القديم
+import fs from "fs";
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const BOT_NAME = "غوكو";
@@ -42,7 +43,7 @@ async function askAI(text) {
 
 // ===== تشغيل المحرك الرئيسي =====
 async function start() {
-  // 🚨 تكة التطهير: لو في كاش قديم معلق وما مربوط، امسحه عشان نطلع كود جديد فريش
+  // تصفية الكاش التالف
   if (fs.existsSync("./auth") && !fs.existsSync("./auth/creds.json")) {
     try { fs.rmSync("./auth", { recursive: true, force: true }); } catch(e){}
   }
@@ -55,7 +56,10 @@ async function start() {
     auth: state,
     logger: P({ level: "silent" }),
     mobile: false,
-    browser: ["Wizzy Dev", "Chrome", "1.0.0"], // اسم جهازك النظيف
+    
+    // 🚨 الحل القاطع هنا: رجعناه للمتصفح الأمني الرسمي المضمون 100% عشان يقبل الربط فوراً
+    browser: Browsers.ubuntu('Chrome'), 
+    
     syncFullHistory: false,
     markOnlineOnConnect: true
   });
@@ -70,7 +74,7 @@ async function start() {
       try {
         const code = await sock.requestPairingCode(targetPhone);
         console.log("\n========================================");
-        console.log(`🔑 كود الربط الفريش والجديد هسي هو: ${code}`);
+        console.log(`🔑 كود الربط الرسمي والمضمون هسي هو: ${code}`);
         console.log("========================================\n");
       } catch (error) {
         console.error("🚨 فشل توليد كود الربط:", error.message);
